@@ -72,17 +72,17 @@ const struct {
 static bool kFailureSignalHandlerInstalled = false;
 
 #if !defined(GLOG_OS_WINDOWS)
-// Returns the program counter from signal context, nullptr if unknown.
+// Returns the program counter from signal context, NULL if unknown.
 void* GetPC(void* ucontext_in_void) {
 #if (defined(HAVE_UCONTEXT_H) || defined(HAVE_SYS_UCONTEXT_H)) && defined(PC_FROM_UCONTEXT)
-  if (ucontext_in_void != nullptr) {
+  if (ucontext_in_void != NULL) {
     ucontext_t *context = reinterpret_cast<ucontext_t *>(ucontext_in_void);
     return (void*)context->PC_FROM_UCONTEXT;
   }
 #else
   (void)ucontext_in_void;
 #endif
-  return nullptr;
+  return NULL;
 }
 #endif
 
@@ -161,7 +161,7 @@ void (*g_failure_writer)(const char* data, size_t size) = WriteToStderr;
 // Dumps time information.  We don't dump human-readable time information
 // as localtime() is not guaranteed to be async signal safe.
 void DumpTimeInfo() {
-  time_t time_in_sec = time(nullptr);
+  time_t time_in_sec = time(NULL);
   char buf[256];  // Big enough for time info.
   MinimalFormatter formatter(buf, sizeof(buf));
   formatter.AppendString("*** Aborted at ");
@@ -174,15 +174,15 @@ void DumpTimeInfo() {
 }
 
 // TODO(hamaji): Use signal instead of sigaction?
-#if defined(HAVE_STACKTRACE) && defined(HAVE_SIGACTION)
+#ifdef HAVE_SIGACTION
 
 // Dumps information about the signal to STDERR.
 void DumpSignalInfo(int signal_number, siginfo_t *siginfo) {
   // Get the signal name.
-  const char* signal_name = nullptr;
-  for (auto kFailureSignal : kFailureSignals) {
-    if (signal_number == kFailureSignal.number) {
-      signal_name = kFailureSignal.name;
+  const char* signal_name = NULL;
+  for (size_t i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
+    if (signal_number == kFailureSignals[i].number) {
+      signal_name = kFailureSignals[i].name;
     }
   }
 
@@ -256,7 +256,7 @@ void InvokeDefaultSignalHandler(int signal_number) {
   memset(&sig_action, 0, sizeof(sig_action));
   sigemptyset(&sig_action.sa_mask);
   sig_action.sa_handler = SIG_DFL;
-  sigaction(signal_number, &sig_action, nullptr);
+  sigaction(signal_number, &sig_action, NULL);
   kill(getpid(), signal_number);
 #elif defined(GLOG_OS_WINDOWS)
   signal(signal_number, SIG_DFL);
@@ -268,7 +268,7 @@ void InvokeDefaultSignalHandler(int signal_number) {
 // dumping stuff while another thread is doing it.  Our policy is to let
 // the first thread dump stuff and let other threads wait.
 // See also comments in FailureSignalHandler().
-static pthread_t* g_entered_thread_id_pointer = nullptr;
+static pthread_t* g_entered_thread_id_pointer = NULL;
 
 // Dumps signal and stack frame information, and invokes the default
 // signal handler once our job is done.
@@ -291,12 +291,13 @@ void FailureSignalHandler(int signal_number,
   // if pthread_self() is guaranteed to return non-zero value for thread
   // ids, but there is no such guarantee.  We need to distinguish if the
   // old value (value returned from __sync_val_compare_and_swap) is
-  // different from the original value (in this case nullptr).
+  // different from the original value (in this case NULL).
   pthread_t* old_thread_id_pointer =
       glog_internal_namespace_::sync_val_compare_and_swap(
-          &g_entered_thread_id_pointer, static_cast<pthread_t*>(nullptr),
+          &g_entered_thread_id_pointer,
+          static_cast<pthread_t*>(NULL),
           &my_thread_id);
-  if (old_thread_id_pointer != nullptr) {
+  if (old_thread_id_pointer != NULL) {
     // We've already entered the signal handler.  What should we do?
     if (pthread_equal(my_thread_id, *g_entered_thread_id_pointer)) {
       // It looks the current thread is reentering the signal handler.
@@ -331,15 +332,11 @@ void FailureSignalHandler(int signal_number,
   const int depth = GetStackTrace(stack, ARRAYSIZE(stack), 1);
 # ifdef HAVE_SIGACTION
   DumpSignalInfo(signal_number, signal_info);
-#elif !defined(GLOG_OS_WINDOWS)
-  (void)signal_info;
 # endif
   // Dump the stack traces.
   for (int i = 0; i < depth; ++i) {
     DumpStackFrameInfo("    ", stack[i]);
   }
-#elif !defined(GLOG_OS_WINDOWS)
-  (void)signal_info;
 #endif
 
   // *** TRANSITION ***
@@ -369,7 +366,7 @@ bool IsFailureSignalHandlerInstalled() {
   struct sigaction sig_action;
   memset(&sig_action, 0, sizeof(sig_action));
   sigemptyset(&sig_action.sa_mask);
-  sigaction(SIGABRT, nullptr, &sig_action);
+  sigaction(SIGABRT, NULL, &sig_action);
   if (sig_action.sa_sigaction == &FailureSignalHandler) {
     return true;
   }
@@ -390,8 +387,8 @@ void InstallFailureSignalHandler() {
   sig_action.sa_flags |= SA_SIGINFO;
   sig_action.sa_sigaction = &FailureSignalHandler;
 
-  for (auto kFailureSignal : kFailureSignals) {
-    CHECK_ERR(sigaction(kFailureSignal.number, &sig_action, nullptr));
+  for (size_t i = 0; i < ARRAYSIZE(kFailureSignals); ++i) {
+    CHECK_ERR(sigaction(kFailureSignals[i].number, &sig_action, NULL));
   }
   kFailureSignalHandlerInstalled = true;
 #elif defined(GLOG_OS_WINDOWS)

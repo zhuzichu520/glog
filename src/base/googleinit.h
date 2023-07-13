@@ -35,7 +35,7 @@
 
 class GoogleInitializer {
  public:
-  using void_function = void (*)();
+  typedef void (*void_function)(void);
   GoogleInitializer(const char*, void_function f) {
     f();
   }

@@ -34,10 +34,9 @@
 //
 // Note that we only have partial C++0x support yet.
 
+#include <cstdio>  // for NULL
+
 #include "demangle.h"
-
-#include <cstdio>  // for nullptr
-
 #include "utilities.h"
 
 #if defined(GLOG_OS_WINDOWS)
@@ -47,69 +46,119 @@
 _START_GOOGLE_NAMESPACE_
 
 #if !defined(GLOG_OS_WINDOWS)
-struct AbbrevPair {
+typedef struct {
   const char *abbrev;
   const char *real_name;
-};
+} AbbrevPair;
 
 // List of operators from Itanium C++ ABI.
 static const AbbrevPair kOperatorList[] = {
-    {"nw", "new"},    {"na", "new[]"},    {"dl", "delete"}, {"da", "delete[]"},
-    {"ps", "+"},      {"ng", "-"},        {"ad", "&"},      {"de", "*"},
-    {"co", "~"},      {"pl", "+"},        {"mi", "-"},      {"ml", "*"},
-    {"dv", "/"},      {"rm", "%"},        {"an", "&"},      {"or", "|"},
-    {"eo", "^"},      {"aS", "="},        {"pL", "+="},     {"mI", "-="},
-    {"mL", "*="},     {"dV", "/="},       {"rM", "%="},     {"aN", "&="},
-    {"oR", "|="},     {"eO", "^="},       {"ls", "<<"},     {"rs", ">>"},
-    {"lS", "<<="},    {"rS", ">>="},      {"eq", "=="},     {"ne", "!="},
-    {"lt", "<"},      {"gt", ">"},        {"le", "<="},     {"ge", ">="},
-    {"nt", "!"},      {"aa", "&&"},       {"oo", "||"},     {"pp", "++"},
-    {"mm", "--"},     {"cm", ","},        {"pm", "->*"},    {"pt", "->"},
-    {"cl", "()"},     {"ix", "[]"},       {"qu", "?"},      {"st", "sizeof"},
-    {"sz", "sizeof"}, {nullptr, nullptr},
+  { "nw", "new" },
+  { "na", "new[]" },
+  { "dl", "delete" },
+  { "da", "delete[]" },
+  { "ps", "+" },
+  { "ng", "-" },
+  { "ad", "&" },
+  { "de", "*" },
+  { "co", "~" },
+  { "pl", "+" },
+  { "mi", "-" },
+  { "ml", "*" },
+  { "dv", "/" },
+  { "rm", "%" },
+  { "an", "&" },
+  { "or", "|" },
+  { "eo", "^" },
+  { "aS", "=" },
+  { "pL", "+=" },
+  { "mI", "-=" },
+  { "mL", "*=" },
+  { "dV", "/=" },
+  { "rM", "%=" },
+  { "aN", "&=" },
+  { "oR", "|=" },
+  { "eO", "^=" },
+  { "ls", "<<" },
+  { "rs", ">>" },
+  { "lS", "<<=" },
+  { "rS", ">>=" },
+  { "eq", "==" },
+  { "ne", "!=" },
+  { "lt", "<" },
+  { "gt", ">" },
+  { "le", "<=" },
+  { "ge", ">=" },
+  { "nt", "!" },
+  { "aa", "&&" },
+  { "oo", "||" },
+  { "pp", "++" },
+  { "mm", "--" },
+  { "cm", "," },
+  { "pm", "->*" },
+  { "pt", "->" },
+  { "cl", "()" },
+  { "ix", "[]" },
+  { "qu", "?" },
+  { "st", "sizeof" },
+  { "sz", "sizeof" },
+  { NULL, NULL },
 };
 
 // List of builtin types from Itanium C++ ABI.
 static const AbbrevPair kBuiltinTypeList[] = {
-    {"v", "void"},        {"w", "wchar_t"},
-    {"b", "bool"},        {"c", "char"},
-    {"a", "signed char"}, {"h", "unsigned char"},
-    {"s", "short"},       {"t", "unsigned short"},
-    {"i", "int"},         {"j", "unsigned int"},
-    {"l", "long"},        {"m", "unsigned long"},
-    {"x", "long long"},   {"y", "unsigned long long"},
-    {"n", "__int128"},    {"o", "unsigned __int128"},
-    {"f", "float"},       {"d", "double"},
-    {"e", "long double"}, {"g", "__float128"},
-    {"z", "ellipsis"},    {nullptr, nullptr}};
+  { "v", "void" },
+  { "w", "wchar_t" },
+  { "b", "bool" },
+  { "c", "char" },
+  { "a", "signed char" },
+  { "h", "unsigned char" },
+  { "s", "short" },
+  { "t", "unsigned short" },
+  { "i", "int" },
+  { "j", "unsigned int" },
+  { "l", "long" },
+  { "m", "unsigned long" },
+  { "x", "long long" },
+  { "y", "unsigned long long" },
+  { "n", "__int128" },
+  { "o", "unsigned __int128" },
+  { "f", "float" },
+  { "d", "double" },
+  { "e", "long double" },
+  { "g", "__float128" },
+  { "z", "ellipsis" },
+  { NULL, NULL }
+};
 
 // List of substitutions Itanium C++ ABI.
 static const AbbrevPair kSubstitutionList[] = {
-    {"St", ""},
-    {"Sa", "allocator"},
-    {"Sb", "basic_string"},
-    // std::basic_string<char, std::char_traits<char>,std::allocator<char> >
-    {"Ss", "string"},
-    // std::basic_istream<char, std::char_traits<char> >
-    {"Si", "istream"},
-    // std::basic_ostream<char, std::char_traits<char> >
-    {"So", "ostream"},
-    // std::basic_iostream<char, std::char_traits<char> >
-    {"Sd", "iostream"},
-    {nullptr, nullptr}};
+  { "St", "" },
+  { "Sa", "allocator" },
+  { "Sb", "basic_string" },
+  // std::basic_string<char, std::char_traits<char>,std::allocator<char> >
+  { "Ss", "string"},
+  // std::basic_istream<char, std::char_traits<char> >
+  { "Si", "istream" },
+  // std::basic_ostream<char, std::char_traits<char> >
+  { "So", "ostream" },
+  // std::basic_iostream<char, std::char_traits<char> >
+  { "Sd", "iostream" },
+  { NULL, NULL }
+};
 
 // State needed for demangling.
-struct State {
-  const char *mangled_cur;   // Cursor of mangled name.
-  char *out_cur;             // Cursor of output string.
-  const char *out_begin;     // Beginning of output string.
-  const char *out_end;       // End of output string.
-  const char *prev_name;     // For constructors/destructors.
-  ssize_t prev_name_length;  // For constructors/destructors.
-  short nest_level;          // For nested names.
-  bool append;               // Append flag.
-  bool overflowed;           // True if output gets overflowed.
-};
+typedef struct {
+  const char *mangled_cur;  // Cursor of mangled name.
+  char *out_cur;            // Cursor of output string.
+  const char *out_begin;    // Beginning of output string.
+  const char *out_end;      // End of output string.
+  const char *prev_name;    // For constructors/destructors.
+  int prev_name_length;     // For constructors/destructors.
+  short nest_level;         // For nested names.
+  bool append;              // Append flag.
+  bool overflowed;          // True if output gets overflowed.
+} State;
 
 // We don't use strlen() in libc since it's not guaranteed to be async
 // signal safe.
@@ -123,8 +172,8 @@ static size_t StrLen(const char *str) {
 }
 
 // Returns true if "str" has at least "n" characters remaining.
-static bool AtLeastNumCharsRemaining(const char *str, ssize_t n) {
-  for (ssize_t i = 0; i < n; ++i) {
+static bool AtLeastNumCharsRemaining(const char *str, int n) {
+  for (int i = 0; i < n; ++i) {
     if (str[i] == '\0') {
       return false;
     }
@@ -148,7 +197,7 @@ static void InitState(State *state, const char *mangled,
   state->out_cur = out;
   state->out_begin = out;
   state->out_end = out + out_size;
-  state->prev_name = nullptr;
+  state->prev_name  = NULL;
   state->prev_name_length = -1;
   state->nest_level = -1;
   state->append = true;
@@ -197,7 +246,7 @@ static bool Optional(bool) {
 }
 
 // This function is used for handling <non-terminal>+ syntax.
-using ParseFunc = bool (*)(State *);
+typedef bool (*ParseFunc)(State *);
 static bool OneOrMore(ParseFunc parse_func, State *state) {
   if (parse_func(state)) {
     while (parse_func(state)) {
@@ -220,8 +269,9 @@ static bool ZeroOrMore(ParseFunc parse_func, State *state) {
 // Append "str" at "out_cur".  If there is an overflow, "overflowed"
 // is set to true for later use.  The output string is ensured to
 // always terminate with '\0' as long as there is no overflow.
-static void Append(State *state, const char * const str, ssize_t length) {
-  for (ssize_t i = 0; i < length; ++i) {
+static void Append(State *state, const char * const str, const int length) {
+  int i;
+  for (i = 0; i < length; ++i) {
     if (state->out_cur + 1 < state->out_end) {  // +1 for '\0'
       *state->out_cur = str[i];
       ++state->out_cur;
@@ -277,7 +327,7 @@ static bool IsFunctionCloneSuffix(const char *str) {
 // Append "str" with some tweaks, iff "append" state is true.
 // Returns true so that it can be placed in "if" conditions.
 static void MaybeAppendWithLength(State *state, const char * const str,
-                                  ssize_t length) {
+                                  const int length) {
   if (state->append && length > 0) {
     // Append a space if the output buffer ends with '<' and "str"
     // starts with '<' to avoid <<<.
@@ -294,11 +344,11 @@ static void MaybeAppendWithLength(State *state, const char * const str,
   }
 }
 
-// A convenient wrapper around MaybeAppendWithLength().
+// A convenient wrapper arount MaybeAppendWithLength().
 static bool MaybeAppend(State *state, const char * const str) {
   if (state->append) {
-    size_t length = StrLen(str);
-    MaybeAppendWithLength(state, str, static_cast<ssize_t>(length));
+    int length = StrLen(str);
+    MaybeAppendWithLength(state, str, length);
   }
   return true;
 }
@@ -352,10 +402,10 @@ static void MaybeCancelLastSeparator(State *state) {
 
 // Returns true if the identifier of the given length pointed to by
 // "mangled_cur" is anonymous namespace.
-static bool IdentifierIsAnonymousNamespace(State *state, ssize_t length) {
+static bool IdentifierIsAnonymousNamespace(State *state, int length) {
   static const char anon_prefix[] = "_GLOBAL__N_";
-  return (length > static_cast<ssize_t>(sizeof(anon_prefix)) -
-                       1 &&  // Should be longer.
+  return (length >
+              static_cast<int>(sizeof(anon_prefix)) - 1 &&  // Should be longer.
           StrPrefix(state->mangled_cur, anon_prefix));
 }
 
@@ -373,7 +423,7 @@ static bool ParseLocalSourceName(State *state);
 static bool ParseNumber(State *state, int *number_out);
 static bool ParseFloatNumber(State *state);
 static bool ParseSeqId(State *state);
-static bool ParseIdentifier(State *state, ssize_t length);
+static bool ParseIdentifier(State *state, int length);
 static bool ParseAbiTags(State *state);
 static bool ParseAbiTag(State *state);
 static bool ParseOperatorName(State *state);
@@ -601,7 +651,7 @@ static bool ParseNumber(State *state, int *number_out) {
   }
   if (p != state->mangled_cur) {  // Conversion succeeded.
     state->mangled_cur = p;
-    if (number_out != nullptr) {
+    if (number_out != NULL) {
       *number_out = number * sign;
     }
     return true;
@@ -642,7 +692,7 @@ static bool ParseSeqId(State *state) {
 }
 
 // <identifier> ::= <unqualified source code identifier> (of given length)
-static bool ParseIdentifier(State *state, ssize_t length) {
+static bool ParseIdentifier(State *state, int length) {
   if (length == -1 ||
       !AtLeastNumCharsRemaining(state->mangled_cur, length)) {
     return false;
@@ -706,7 +756,7 @@ static bool ParseOperatorName(State *state) {
   }
   // We may want to perform a binary search if we really need speed.
   const AbbrevPair *p;
-  for (p = kOperatorList; p->abbrev != nullptr; ++p) {
+  for (p = kOperatorList; p->abbrev != NULL; ++p) {
     if (state->mangled_cur[0] == p->abbrev[0] &&
         state->mangled_cur[1] == p->abbrev[1]) {
       MaybeAppend(state, "operator");
@@ -768,8 +818,9 @@ static bool ParseSpecialName(State *state) {
 
   // G++ extensions
   if (ParseTwoCharToken(state, "TC") && ParseType(state) &&
-      ParseNumber(state, nullptr) && ParseOneCharToken(state, '_') &&
-      DisableAppend(state) && ParseType(state)) {
+      ParseNumber(state, NULL) && ParseOneCharToken(state, '_') &&
+      DisableAppend(state) &&
+      ParseType(state)) {
     RestoreAppend(state, copy.append);
     return true;
   }
@@ -819,13 +870,15 @@ static bool ParseCallOffset(State *state) {
 }
 
 // <nv-offset> ::= <(offset) number>
-static bool ParseNVOffset(State *state) { return ParseNumber(state, nullptr); }
+static bool ParseNVOffset(State *state) {
+  return ParseNumber(state, NULL);
+}
 
 // <v-offset>  ::= <(offset) number> _ <(virtual offset) number>
 static bool ParseVOffset(State *state) {
   State copy = *state;
-  if (ParseNumber(state, nullptr) && ParseOneCharToken(state, '_') &&
-      ParseNumber(state, nullptr)) {
+  if (ParseNumber(state, NULL) && ParseOneCharToken(state, '_') &&
+      ParseNumber(state, NULL)) {
     return true;
   }
   *state = copy;
@@ -839,7 +892,7 @@ static bool ParseCtorDtorName(State *state) {
   if (ParseOneCharToken(state, 'C') &&
       ParseCharClass(state, "123")) {
     const char * const prev_name = state->prev_name;
-    const ssize_t prev_name_length = state->prev_name_length;
+    const int prev_name_length = state->prev_name_length;
     MaybeAppendWithLength(state, prev_name, prev_name_length);
     return true;
   }
@@ -848,7 +901,7 @@ static bool ParseCtorDtorName(State *state) {
   if (ParseOneCharToken(state, 'D') &&
       ParseCharClass(state, "012")) {
     const char * const prev_name = state->prev_name;
-    const ssize_t prev_name_length = state->prev_name_length;
+    const int prev_name_length = state->prev_name_length;
     MaybeAppend(state, "~");
     MaybeAppendWithLength(state, prev_name, prev_name_length);
     return true;
@@ -945,7 +998,7 @@ static bool ParseCVQualifiers(State *state) {
 //                ::= u <source-name>
 static bool ParseBuiltinType(State *state) {
   const AbbrevPair *p;
-  for (p = kBuiltinTypeList; p->abbrev != nullptr; ++p) {
+  for (p = kBuiltinTypeList; p->abbrev != NULL; ++p) {
     if (state->mangled_cur[0] == p->abbrev[0]) {
       MaybeAppend(state, p->real_name);
       ++state->mangled_cur;
@@ -995,7 +1048,7 @@ static bool ParseClassEnumType(State *state) {
 //              ::= A [<(dimension) expression>] _ <(element) type>
 static bool ParseArrayType(State *state) {
   State copy = *state;
-  if (ParseOneCharToken(state, 'A') && ParseNumber(state, nullptr) &&
+  if (ParseOneCharToken(state, 'A') && ParseNumber(state, NULL) &&
       ParseOneCharToken(state, '_') && ParseType(state)) {
     return true;
   }
@@ -1029,7 +1082,7 @@ static bool ParseTemplateParam(State *state) {
   }
 
   State copy = *state;
-  if (ParseOneCharToken(state, 'T') && ParseNumber(state, nullptr) &&
+  if (ParseOneCharToken(state, 'T') && ParseNumber(state, NULL) &&
       ParseOneCharToken(state, '_')) {
     MaybeAppend(state, "?");  // We don't support template substitutions.
     return true;
@@ -1153,7 +1206,8 @@ static bool ParseExpression(State *state) {
 static bool ParseExprPrimary(State *state) {
   State copy = *state;
   if (ParseOneCharToken(state, 'L') && ParseType(state) &&
-      ParseNumber(state, nullptr) && ParseOneCharToken(state, 'E')) {
+      ParseNumber(state, NULL) &&
+      ParseOneCharToken(state, 'E')) {
     return true;
   }
   *state = copy;
@@ -1203,7 +1257,7 @@ static bool ParseLocalName(State *state) {
 // <discriminator> := _ <(non-negative) number>
 static bool ParseDiscriminator(State *state) {
   State copy = *state;
-  if (ParseOneCharToken(state, '_') && ParseNumber(state, nullptr)) {
+  if (ParseOneCharToken(state, '_') && ParseNumber(state, NULL)) {
     return true;
   }
   *state = copy;
@@ -1230,7 +1284,7 @@ static bool ParseSubstitution(State *state) {
   // Expand abbreviations like "St" => "std".
   if (ParseOneCharToken(state, 'S')) {
     const AbbrevPair *p;
-    for (p = kSubstitutionList; p->abbrev != nullptr; ++p) {
+    for (p = kSubstitutionList; p->abbrev != NULL; ++p) {
       if (state->mangled_cur[0] == p->abbrev[1]) {
         MaybeAppend(state, "std");
         if (p->real_name[0] != '\0') {

@@ -78,13 +78,13 @@ static int AssertFail() {
 
 #define SAFE_ASSERT(expr) ((expr) ? 0 : AssertFail())
 
-static SymbolizeCallback g_symbolize_callback = nullptr;
+static SymbolizeCallback g_symbolize_callback = NULL;
 void InstallSymbolizeCallback(SymbolizeCallback callback) {
   g_symbolize_callback = callback;
 }
 
 static SymbolizeOpenObjectFileCallback g_symbolize_open_object_file_callback =
-    nullptr;
+    NULL;
 void InstallSymbolizeOpenObjectFileCallback(
     SymbolizeOpenObjectFileCallback callback) {
   g_symbolize_open_object_file_callback = callback;
@@ -94,12 +94,12 @@ void InstallSymbolizeOpenObjectFileCallback(
 // where the input symbol is demangled in-place.
 // To keep stack consumption low, we would like this function to not
 // get inlined.
-static ATTRIBUTE_NOINLINE void DemangleInplace(char *out, size_t out_size) {
+static ATTRIBUTE_NOINLINE void DemangleInplace(char *out, int out_size) {
   char demangled[256];  // Big enough for sane demangled symbols.
   if (Demangle(out, demangled, sizeof(demangled))) {
     // Demangling succeeded. Copy to out if the space allows.
     size_t len = strlen(demangled);
-    if (len + 1 <= out_size) {  // +1 for '\0'.
+    if (len + 1 <= static_cast<size_t>(out_size)) {  // +1 for '\0'.
       SAFE_ASSERT(len < sizeof(demangled));
       memmove(out, demangled, len + 1);
     }
@@ -118,22 +118,21 @@ _END_GOOGLE_NAMESPACE_
 #else
 #include <elf.h>
 #endif
+#include <cerrno>
+#include <climits>
+#include <cstddef>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <fcntl.h>
-#include <glog/raw_logging.h>
+#include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <cerrno>
-#include <climits>
-#include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-
-#include "config.h"
 #include "symbolize.h"
+#include "config.h"
+#include <glog/raw_logging.h>
 
 // Re-runs fn until it doesn't cause EINTR.
 #define NO_INTR(fn)   do {} while ((fn) < 0 && errno == EINTR)
@@ -279,7 +278,7 @@ static ATTRIBUTE_NOINLINE bool
 FindSymbol(uint64_t pc, const int fd, char *out, size_t out_size,
            uint64_t symbol_offset, const ElfW(Shdr) *strtab,
            const ElfW(Shdr) *symtab) {
-  if (symtab == nullptr) {
+  if (symtab == NULL) {
     return false;
   }
   const size_t num_symbols = symtab->sh_size / symtab->sh_entsize;
@@ -313,7 +312,7 @@ FindSymbol(uint64_t pc, const int fd, char *out, size_t out_size,
           start_address <= pc && pc < end_address) {
         ssize_t len1 = ReadFromOffset(fd, out, out_size,
                                       strtab->sh_offset + symbol.st_name);
-        if (len1 <= 0 || memchr(out, '\0', out_size) == nullptr) {
+        if (len1 <= 0 || memchr(out, '\0', out_size) == NULL) {
           memset(out, 0, out_size);
           return false;
         }
@@ -383,8 +382,8 @@ struct FileDescriptor {
   int get() { return fd_; }
 
  private:
-  FileDescriptor(const FileDescriptor &) = delete;
-  void operator=(const FileDescriptor &) = delete;
+  FileDescriptor(const FileDescriptor &);
+  void operator=(const FileDescriptor&);
 };
 
 // Helper class for reading lines from file.
@@ -421,7 +420,7 @@ class LineReader {
       bol_ = eol_ + 1;  // Advance to the next line in the buffer.
       SAFE_ASSERT(bol_ <= eod_);  // "bol_" can point to "eod_".
       if (!HasCompleteLine()) {
-        const auto incomplete_line_length = static_cast<size_t>(eod_ - bol_);
+        const size_t incomplete_line_length = static_cast<size_t>(eod_ - bol_);
         // Move the trailing incomplete line to the beginning.
         memmove(buf_, bol_, incomplete_line_length);
         // Read text from file and append it.
@@ -438,7 +437,7 @@ class LineReader {
       }
     }
     eol_ = FindLineFeed();
-    if (eol_ == nullptr) {  // '\n' not found.  Malformed line.
+    if (eol_ == NULL) {  // '\n' not found.  Malformed line.
       return false;
     }
     *eol_ = '\0';  // Replace '\n' with '\0'.
@@ -459,8 +458,8 @@ class LineReader {
   }
 
  private:
-  LineReader(const LineReader &) = delete;
-  void operator=(const LineReader &) = delete;
+  LineReader(const LineReader &);
+  void operator=(const LineReader&);
 
   char *FindLineFeed() {
     return reinterpret_cast<char *>(memchr(bol_, '\n', static_cast<size_t>(eod_ - bol_)));
@@ -471,7 +470,7 @@ class LineReader {
   }
 
   bool HasCompleteLine() {
-    return !BufferIsEmpty() && FindLineFeed() != nullptr;
+    return !BufferIsEmpty() && FindLineFeed() != NULL;
   }
 
   const int fd_;
@@ -668,20 +667,20 @@ OpenObjectFileContainingPcAndGetStartAddress(uint64_t pc,
 // POSIX doesn't define any async-signal safe function for converting
 // an integer to ASCII. We'll have to define our own version.
 // itoa_r() converts an (unsigned) integer to ASCII. It returns "buf", if the
-// conversion was successful or nullptr otherwise. It never writes more than
-// "sz" bytes. Output will be truncated as needed, and a NUL character is always
+// conversion was successful or NULL otherwise. It never writes more than "sz"
+// bytes. Output will be truncated as needed, and a NUL character is always
 // appended.
 // NOTE: code from sandbox/linux/seccomp-bpf/demo.cc.
 static char *itoa_r(uintptr_t i, char *buf, size_t sz, unsigned base, size_t padding) {
   // Make sure we can write at least one NUL byte.
   size_t n = 1;
   if (n > sz) {
-    return nullptr;
+    return NULL;
   }
 
   if (base < 2 || base > 16) {
     buf[0] = '\000';
-    return nullptr;
+    return NULL;
   }
 
   char *start = buf;
@@ -693,7 +692,7 @@ static char *itoa_r(uintptr_t i, char *buf, size_t sz, unsigned base, size_t pad
     // Make sure there is still enough space left in our output buffer.
     if (++n > sz) {
       buf[0] = '\000';
-      return nullptr;
+      return NULL;
     }
 
     // Output the next digit.
@@ -751,7 +750,7 @@ static void SafeAppendHexNumber(uint64_t value, char* dest, size_t dest_size) {
 // get inlined.
 static ATTRIBUTE_NOINLINE bool SymbolizeAndDemangle(void *pc, char *out,
                                                     size_t out_size) {
-  auto pc0 = reinterpret_cast<uintptr_t>(pc);
+  uint64_t pc0 = reinterpret_cast<uintptr_t>(pc);
   uint64_t start_address = 0;
   uint64_t base_address = 0;
   int object_fd = -1;
@@ -875,7 +874,7 @@ class SymInitializer {
 public:
   HANDLE process;
   bool ready;
-  SymInitializer() : process(nullptr), ready(false) {
+  SymInitializer() : process(NULL), ready(false) {
     // Initialize the symbol handler.
     // https://msdn.microsoft.com/en-us/library/windows/desktop/ms680344(v=vs.85).aspx
     process = GetCurrentProcess();
@@ -883,7 +882,7 @@ public:
     // We do not request undecorated symbols with SYMOPT_UNDNAME
     // because the mangling library calls UnDecorateSymbolName.
     SymSetOptions(SYMOPT_DEFERRED_LOADS);
-    if (SymInitialize(process, nullptr, true)) {
+    if (SymInitialize(process, NULL, true)) {
       ready = true;
     }
   }
@@ -897,7 +896,7 @@ private:
 };
 
 static ATTRIBUTE_NOINLINE bool SymbolizeAndDemangle(void *pc, char *out,
-                                                    size_t out_size) {
+                                                      int out_size) {
   const static SymInitializer symInitializer;
   if (!symInitializer.ready) {
     return false;
@@ -912,7 +911,7 @@ static ATTRIBUTE_NOINLINE bool SymbolizeAndDemangle(void *pc, char *out,
   // This could break if a symbol has Unicode in it.
   BOOL ret = SymFromAddr(symInitializer.process,
                          reinterpret_cast<DWORD64>(pc), 0, symbol);
-  if (ret == 1 && static_cast<ssize_t>(symbol->NameLen) < out_size) {
+  if (ret == 1 && static_cast<int>(symbol->NameLen) < out_size) {
     // `NameLen` does not include the null terminating character.
     strncpy(out, symbol->Name, static_cast<size_t>(symbol->NameLen) + 1);
     out[static_cast<size_t>(symbol->NameLen)] = '\0';

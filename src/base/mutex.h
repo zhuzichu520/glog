@@ -139,7 +139,7 @@
 #   endif
 # endif
 # include <pthread.h>
-using MutexType = pthread_rwlock_t;
+  typedef pthread_rwlock_t MutexType;
 #elif defined(HAVE_PTHREAD)
 # include <pthread.h>
   typedef pthread_mutex_t MutexType;
@@ -194,10 +194,10 @@ class Mutex {
   inline void SetIsSafe() { is_safe_ = true; }
 
   // Catch the error of writing Mutex when intending MutexLock.
-  explicit Mutex(Mutex * /*ignored*/) {}
+  Mutex(Mutex* /*ignored*/) {}
   // Disallow "evil" constructors
-  Mutex(const Mutex &) = delete;
-  void operator=(const Mutex &) = delete;
+  Mutex(const Mutex&);
+  void operator=(const Mutex&);
 };
 
 // Now the implementation of Mutex for various systems
@@ -244,7 +244,7 @@ void Mutex::ReaderUnlock() { Unlock(); }
 
 Mutex::Mutex() {
   SetIsSafe();
-  if (is_safe_ && pthread_rwlock_init(&mutex_, nullptr) != 0) abort();
+  if (is_safe_ && pthread_rwlock_init(&mutex_, NULL) != 0) abort();
 }
 Mutex::~Mutex()            { SAFE_PTHREAD(pthread_rwlock_destroy); }
 void Mutex::Lock()         { SAFE_PTHREAD(pthread_rwlock_wrlock); }
@@ -266,7 +266,7 @@ void Mutex::ReaderUnlock() { SAFE_PTHREAD(pthread_rwlock_unlock); }
 
 Mutex::Mutex()             {
   SetIsSafe();
-  if (is_safe_ && pthread_mutex_init(&mutex_, nullptr) != 0) abort();
+  if (is_safe_ && pthread_mutex_init(&mutex_, NULL) != 0) abort();
 }
 Mutex::~Mutex()            { SAFE_PTHREAD(pthread_mutex_destroy); }
 void Mutex::Lock()         { SAFE_PTHREAD(pthread_mutex_lock); }
@@ -292,8 +292,8 @@ class MutexLock {
  private:
   Mutex * const mu_;
   // Disallow "evil" constructors
-  MutexLock(const MutexLock &) = delete;
-  void operator=(const MutexLock &) = delete;
+  MutexLock(const MutexLock&);
+  void operator=(const MutexLock&);
 };
 
 // ReaderMutexLock and WriterMutexLock do the same, for rwlocks
@@ -304,8 +304,8 @@ class ReaderMutexLock {
  private:
   Mutex * const mu_;
   // Disallow "evil" constructors
-  ReaderMutexLock(const ReaderMutexLock &) = delete;
-  void operator=(const ReaderMutexLock &) = delete;
+  ReaderMutexLock(const ReaderMutexLock&);
+  void operator=(const ReaderMutexLock&);
 };
 
 class WriterMutexLock {
@@ -315,8 +315,8 @@ class WriterMutexLock {
  private:
   Mutex * const mu_;
   // Disallow "evil" constructors
-  WriterMutexLock(const WriterMutexLock &) = delete;
-  void operator=(const WriterMutexLock &) = delete;
+  WriterMutexLock(const WriterMutexLock&);
+  void operator=(const WriterMutexLock&);
 };
 
 // Catch bug where variable name is omitted, e.g. MutexLock (&mu);

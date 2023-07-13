@@ -29,7 +29,7 @@
 //
 // Author: Shinichiro Hamaji
 //
-// Define utilities for glog internal usage.
+// Define utilties for glog internal usage.
 
 #ifndef UTILITIES_H__
 #define UTILITIES_H__
@@ -88,7 +88,7 @@
 
 #if defined(HAVE_LIB_UNWIND)
 # define STACKTRACE_H "stacktrace_libunwind-inl.h"
-#elif defined(HAVE__UNWIND_BACKTRACE) && defined(HAVE__UNWIND_GETIP)
+#elif defined(HAVE__UNWIND_BACKTRACE)
 # define STACKTRACE_H "stacktrace_unwind-inl.h"
 #elif !defined(NO_FRAME_POINTER)
 # if defined(__i386__) && __GNUC__ >= 2
@@ -100,7 +100,7 @@
 # endif
 #endif
 
-#if !defined(STACKTRACE_H) && defined(HAVE_EXECINFO_BACKTRACE)
+#if !defined(STACKTRACE_H) && defined(HAVE_EXECINFO_H)
 # define STACKTRACE_H "stacktrace_generic-inl.h"
 #endif
 
@@ -174,7 +174,7 @@ inline T sync_val_compare_and_swap(T* ptr, T oldval, T newval) {
                        :"=a"(ret)
                         // GCC may produces %sil or %dil for
                         // constraint "r", but some of apple's gas
-                        // doesn't know the 8 bit registers.
+                        // dosn't know the 8 bit registers.
                         // We use "q" to avoid these registers.
                        :"q"(newval), "q"(ptr), "a"(oldval)
                        :"memory", "cc");
@@ -191,16 +191,16 @@ inline T sync_val_compare_and_swap(T* ptr, T oldval, T newval) {
 void DumpStackTraceToString(std::string* stacktrace);
 
 struct CrashReason {
-  CrashReason() = default;
+  CrashReason() : filename(0), line_number(0), message(0), depth(0) {}
 
-  const char* filename{nullptr};
-  int line_number{0};
-  const char* message{nullptr};
+  const char* filename;
+  int line_number;
+  const char* message;
 
   // We'll also store a bit of stack trace context at the time of crash as
   // it may not be available later on.
   void* stack[32];
-  int depth{0};
+  int depth;
 };
 
 void SetCrashReason(const CrashReason* r);

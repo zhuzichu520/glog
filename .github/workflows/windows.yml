@@ -4,7 +4,7 @@ on: [push, pull_request]
 
 jobs:
   build-msvc:
-    name: ${{matrix.msvc}}-${{matrix.arch}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}
+    name: ${{matrix.msvc}}-${{matrix.arch}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}-${{matrix.extra}}
     runs-on: ${{matrix.os}}
     defaults:
       run:
@@ -17,8 +17,10 @@ jobs:
       matrix:
         arch: [Win32, x64]
         build_type: [Debug, Release]
+        extra: [no-custom-prefix, custom-prefix]
         lib: [shared, static]
         msvc: [VS-16-2019, VS-17-2022]
+        # Visual Studio 17 2022 does not support C++11 and older language standard
         std: [14, 17, 20]
         include:
           - msvc: VS-16-2019
@@ -29,11 +31,11 @@ jobs:
             generator: 'Visual Studio 17 2022'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       - name: Cache GTest
         id: cache-gtest
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
           path: gtest/
           key: ${{runner.os}}-gtest-1.11-${{matrix.lib}}-${{matrix.arch}}-${{matrix.build_type}}
@@ -58,7 +60,7 @@ jobs:
 
       - name: Cache gflags
         id: cache-gflags
-        uses: actions/cache@v3
+        uses: actions/cache@v2
         with:
           path: gflags/
           key: ${{runner.os}}-gflags-2.2.2-${{matrix.lib}}-${{matrix.arch}}-${{matrix.build_type}}
@@ -104,6 +106,7 @@ jobs:
                 -DCMAKE_EXE_LINKER_FLAGS_RELEASE='/INCREMENTAL:NO /DEBUG' `
                 -DCMAKE_INSTALL_PREFIX:PATH=./install `
                 -DCMAKE_MSVC_RUNTIME_LIBRARY='MultiThreaded$<$<CONFIG:Debug>:Debug>DLL' `
+                -DWITH_CUSTOM_PREFIX=${{matrix.extra == 'custom-prefix'}} `
                 -G "${{matrix.generator}}" `
                 -Werror
 
@@ -126,10 +129,10 @@ jobs:
                 --target install
 
   build-mingw:
-    name: ${{matrix.sys}}-${{matrix.env}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}
+    name: ${{matrix.sys}}-${{matrix.env}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}-${{matrix.extra}}
     runs-on: windows-2022
     env:
-      BUILDDIR: 'build_${{matrix.sys}}-${{matrix.env}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}'
+      BUILDDIR: 'build_${{matrix.sys}}-${{matrix.env}}-C++${{matrix.std}}-${{matrix.build_type}}-${{matrix.lib}}-${{matrix.extra}}'
     defaults:
       run:
         shell: msys2 {0}
@@ -137,8 +140,9 @@ jobs:
       fail-fast: true
       matrix:
         build_type: [Debug]
+        extra: [no-custom-prefix, custom-prefix]
         lib: [shared, static]
-        std: [14, 17, 20]
+        std: [98, 11, 14, 17, 20]
         sys: [mingw32, mingw64]
         include:
          - sys: mingw32
@@ -147,7 +151,7 @@ jobs:
            env: x86_64
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{matrix.sys}}
@@ -157,6 +161,11 @@ jobs:
             mingw-w64-${{matrix.env}}-gcc
             mingw-w64-${{matrix.env}}-gflags
             mingw-w64-${{matrix.env}}-ninja
+
+      - name: Setup C++98 Environment
+        if: matrix.std == '98'
+        run: |
+          echo 'CXXFLAGS=-Wno-error=variadic-macros -Wno-error=long-long ${{env.CXXFLAGS}}' >> $GITHUB_ENV
 
       - name: Setup Environment
         if: matrix.build_type == 'Debug'
@@ -174,6 +183,7 @@ jobs:
                 -DCMAKE_CXX_STANDARD=${{matrix.std}} \
                 -DCMAKE_CXX_STANDARD_REQUIRED=ON \
                 -DCMAKE_INSTALL_PREFIX:PATH=./install \
+                -DWITH_CUSTOM_PREFIX=${{matrix.extra == 'custom-prefix'}} \
                 -G Ninja \
                 -Werror
 
@@ -217,7 +227,7 @@ jobs:
 
       - name: Upload Coverage to Codecov
         if: matrix.build_type == 'Debug'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true

@@ -31,11 +31,11 @@
 //
 // logging_unittest.cc covers the functionality herein
 
-#include <cerrno>
-#include <cstdarg>
-#include <cstdio>
-
 #include "utilities.h"
+
+#include <stdarg.h>
+#include <cstdio>
+#include <cerrno>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>               // for close() and write()
 #endif
@@ -59,13 +59,11 @@
 # include <unistd.h>
 #endif
 
-#if (defined(HAVE_SYSCALL_H) || defined(HAVE_SYS_SYSCALL_H)) && \
-    (!(defined(GLOG_OS_MACOSX)) && !(defined(GLOG_OS_OPENBSD))) && \
-    !defined(GLOG_OS_EMSCRIPTEN)
-#define safe_write(fd, s, len) syscall(SYS_write, fd, s, len)
+#if (defined(HAVE_SYSCALL_H) || defined(HAVE_SYS_SYSCALL_H)) && (!(defined(GLOG_OS_MACOSX)))
+# define safe_write(fd, s, len)  syscall(SYS_write, fd, s, len)
 #else
-// Not so safe, but what can you do?
-#define safe_write(fd, s, len) write(fd, s, len)
+  // Not so safe, but what can you do?
+# define safe_write(fd, s, len)  write(fd, s, len)
 #endif
 
 _START_GOOGLE_NAMESPACE_

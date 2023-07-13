@@ -32,9 +32,7 @@
 // Note:  The glibc implementation may cause a call to malloc.
 // This can cause a deadlock in HeapProfiler.
 #include <execinfo.h>
-
-#include <cstring>
-
+#include <string.h>
 #include "stacktrace.h"
 
 _START_GOOGLE_NAMESPACE_

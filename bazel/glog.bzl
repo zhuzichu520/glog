@@ -33,7 +33,7 @@ def dict_union(x, y):
 
 def glog_library(namespace = "google", with_gflags = 1, **kwargs):
     if native.repository_name() != "@":
-        repo_name = native.repository_name()[1:]  # Strip the first leading @
+        repo_name = native.repository_name().lstrip("@")
         gendir = "$(GENDIR)/external/" + repo_name
         src_windows = "external/%s/src/windows" % repo_name
     else:
@@ -53,11 +53,13 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
     )
 
     common_copts = [
-        "-std=c++14",
         "-DGLOG_BAZEL_BUILD",
         # Inject a C++ namespace.
         "-DGOOGLE_NAMESPACE='%s'" % namespace,
+        "-DHAVE_CXX11_NULLPTR_T",
+        "-DHAVE_STDINT_H",
         "-DHAVE_STRING_H",
+        "-DGLOG_CUSTOM_PREFIX_SUPPORT",
         "-I%s/glog_internal" % gendir,
     ] + (["-DHAVE_LIB_GFLAGS"] if with_gflags else [])
 
@@ -73,8 +75,7 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
         "-DHAVE_SYS_UTSNAME_H",
         # For src/utilities.cc.
         "-DHAVE_SYS_TIME_H",
-        "-DHAVE__UNWIND_BACKTRACE",
-        "-DHAVE__UNWIND_GETIP",
+        "-DHAVE_UNWIND_H",
         # Enable dumping stacktrace upon sigaction.
         "-DHAVE_SIGACTION",
         # For logging.cc.
@@ -95,11 +96,6 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
     freebsd_only_copts = [
         # Enable declaration of _Unwind_Backtrace
         "-D_GNU_SOURCE",
-    ]
-
-    linux_only_copts = [
-        # For utilities.h.
-        "-DHAVE_EXECINFO_H",
     ]
 
     darwin_only_copts = [
@@ -131,54 +127,20 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
 
     gflags_deps = ["@com_github_gflags_gflags//:gflags"] if with_gflags else []
 
-    final_lib_defines = select({
-        # GLOG_EXPORT is normally set by export.h, but that's not
-        # generated for Bazel.
-        "@bazel_tools//src/conditions:windows": [
-            "GLOG_EXPORT=",
-            "GLOG_DEPRECATED=__declspec(deprecated)",
-            "GLOG_NO_ABBREVIATED_SEVERITIES",
-        ],
-        "//conditions:default": [
-            "GLOG_DEPRECATED=__attribute__((deprecated))",
-            "GLOG_EXPORT=__attribute__((visibility(\\\"default\\\")))",
-        ],
-    })
-
-    final_lib_copts = select({
-        "@bazel_tools//src/conditions:windows": common_copts + windows_only_copts,
-        "@bazel_tools//src/conditions:darwin": common_copts + linux_or_darwin_copts + darwin_only_copts,
-        "@bazel_tools//src/conditions:freebsd": common_copts + linux_or_darwin_copts + freebsd_only_copts,
-        ":wasm": common_copts + wasm_copts,
-        "//conditions:default": common_copts + linux_or_darwin_copts + linux_only_copts,
-    }) + select({
-        ":clang-cl": clang_cl_only_copts,
-        "//conditions:default": [],
-    })
-
-    # Needed to use these headers in `glog` and the test targets without exposing them as public targets in `glog`
-    native.filegroup(
-        name = "shared_headers",
-        srcs = [
-            "src/base/commandlineflags.h",
-            "src/base/mutex.h",
-            "src/stacktrace.h",
-            "src/utilities.h",
-        ]
-    )
-
     native.cc_library(
         name = "glog",
         visibility = ["//visibility:public"],
         srcs = [
             ":config_h",
-            ":shared_headers",
+            "src/base/commandlineflags.h",
             "src/base/googleinit.h",
+            "src/base/mutex.h",
             "src/demangle.cc",
             "src/demangle.h",
             "src/logging.cc",
             "src/raw_logging.cc",
             "src/signalhandler.cc",
+            "src/stacktrace.h",
             "src/stacktrace_generic-inl.h",
             "src/stacktrace_libunwind-inl.h",
             "src/stacktrace_powerpc-inl.h",
@@ -188,6 +150,7 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
             "src/symbolize.cc",
             "src/symbolize.h",
             "src/utilities.cc",
+            "src/utilities.h",
             "src/vlog_is_on.cc",
         ] + select({
             "@bazel_tools//src/conditions:windows": windows_only_srcs,
@@ -201,60 +164,38 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
             ":stl_logging_h",
             ":vlog_is_on_h",
         ],
-        # https://github.com/google/glog/issues/837: Replacing
-        # `strip_include_prefix` with `includes` would avoid spamming
-        # downstream projects with compiler warnings, but would also leak
-        # private headers like stacktrace.h, because strip_include_prefix's
-        # implementation only creates symlinks for the public hdrs. I suspect
-        # the only way to avoid this is to refactor the project including the
-        # CMake build, so that the private headers are in a glog_internal
-        # subdirectory.
         strip_include_prefix = "src",
-        defines = final_lib_defines,
-        copts = final_lib_copts,
+        defines = select({
+            # GLOG_EXPORT is normally set by export.h, but that's not
+            # generated for Bazel.
+            "@bazel_tools//src/conditions:windows": [
+                "GLOG_EXPORT=",
+                "GLOG_DEPRECATED=__declspec(deprecated)",
+                "GLOG_NO_ABBREVIATED_SEVERITIES",
+            ],
+            "//conditions:default": [
+                "GLOG_DEPRECATED=__attribute__((deprecated))",
+                "GLOG_EXPORT=__attribute__((visibility(\\\"default\\\")))",
+            ],
+        }),
+        copts =
+            select({
+                "@bazel_tools//src/conditions:windows": common_copts + windows_only_copts,
+                "@bazel_tools//src/conditions:darwin": common_copts + linux_or_darwin_copts + darwin_only_copts,
+                "@bazel_tools//src/conditions:freebsd": common_copts + linux_or_darwin_copts + freebsd_only_copts,
+                ":wasm": common_copts + wasm_copts,
+                "//conditions:default": common_copts + linux_or_darwin_copts,
+            }) +
+            select({
+                ":clang-cl": clang_cl_only_copts,
+                "//conditions:default": []
+            }),
         deps = gflags_deps + select({
             "@bazel_tools//src/conditions:windows": [":strip_include_prefix_hack"],
             "//conditions:default": [],
         }),
         **kwargs
     )
-
-    test_list = [
-        "cleanup_immediately",
-        "cleanup_with_absolute_prefix",
-        "cleanup_with_relative_prefix",
-        # "demangle", # Broken
-        # "logging", # Broken
-        # "mock-log", # Broken
-        # "signalhandler", # Pointless
-        "stacktrace",
-        "stl_logging",
-        # "symbolize", # Broken
-        "utilities",
-    ]
-
-    test_only_copts = [
-        "-DTEST_SRC_DIR=\\\"%s/tests\\\"" % gendir,
-    ]
-
-    for test_name in test_list:
-        native.cc_test(
-            name = test_name + "_test",
-            visibility = ["//visibility:public"],
-            srcs = [
-                ":config_h",
-                ":shared_headers",
-                "src/googletest.h",
-                "src/" + test_name + "_unittest.cc",
-            ],
-            defines = final_lib_defines,
-            copts = final_lib_copts + test_only_copts,
-            deps = gflags_deps + [
-                ":glog",
-                "@com_github_google_googletest//:gtest",
-            ],
-            **kwargs
-        )
 
     # Workaround https://github.com/bazelbuild/bazel/issues/6337 by declaring
     # the dependencies without strip_include_prefix.
@@ -277,6 +218,12 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
     )
 
     common_config = {
+        "@ac_cv_cxx11_atomic@": "1",
+        "@ac_cv_cxx11_constexpr@": "1",
+        "@ac_cv_cxx11_chrono@": "1",
+        "@ac_cv_cxx11_nullptr_t@": "1",
+        "@ac_cv_cxx_using_operator@": "1",
+        "@ac_cv_have_inttypes_h@": "0",
         "@ac_cv_have_u_int16_t@": "0",
         "@ac_cv_have_glog_export@": "0",
         "@ac_google_start_namespace@": "namespace google {",
@@ -285,25 +232,29 @@ def glog_library(namespace = "google", with_gflags = 1, **kwargs):
     }
 
     posix_config = dict_union(common_config, {
-        "@ac_cv___attribute___noinline@": "__attribute__((noinline))",
-        "@ac_cv___attribute___printf_4_5@": "__attribute__((__format__(__printf__, 4, 5)))",
+        "@ac_cv_have_unistd_h@": "1",
+        "@ac_cv_have_stdint_h@": "1",
+        "@ac_cv_have_systypes_h@": "1",
+        "@ac_cv_have_uint16_t@": "1",
+        "@ac_cv_have___uint16@": "0",
         "@ac_cv_have___builtin_expect@": "1",
         "@ac_cv_have_libgflags@": "1" if with_gflags else "0",
-        "@ac_cv_have_mode_t@": "1",
-        "@ac_cv_have_ssize_t@": "1",
-        "@ac_cv_have_systypes_h@": "1",
-        "@ac_cv_have_unistd_h@": "1",
+        "@ac_cv___attribute___noinline@": "__attribute__((noinline))",
+        "@ac_cv___attribute___noreturn@": "__attribute__((noreturn))",
+        "@ac_cv___attribute___printf_4_5@": "__attribute__((__format__(__printf__, 4, 5)))",
     })
 
     windows_config = dict_union(common_config, {
-        "@ac_cv___attribute___noinline@": "",
-        "@ac_cv___attribute___printf_4_5@": "",
+        "@ac_cv_have_unistd_h@": "0",
+        "@ac_cv_have_stdint_h@": "0",
+        "@ac_cv_have_systypes_h@": "0",
+        "@ac_cv_have_uint16_t@": "0",
+        "@ac_cv_have___uint16@": "1",
         "@ac_cv_have___builtin_expect@": "0",
         "@ac_cv_have_libgflags@": "0",
-        "@ac_cv_have_mode_t@": "0",
-        "@ac_cv_have_ssize_t@": "0",
-        "@ac_cv_have_systypes_h@": "0",
-        "@ac_cv_have_unistd_h@": "0",
+        "@ac_cv___attribute___noinline@": "",
+        "@ac_cv___attribute___noreturn@": "__declspec(noreturn)",
+        "@ac_cv___attribute___printf_4_5@": "",
     })
 
     [

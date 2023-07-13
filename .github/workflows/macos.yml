@@ -5,17 +5,17 @@ on: [push, pull_request]
 jobs:
   build-macos:
     name: AppleClang-C++${{matrix.std}}-${{matrix.build_type}}
-    runs-on: macos-12
+    runs-on: macos-10.15
     strategy:
       fail-fast: true
       matrix:
-        std: [14, 17, 20]
+        std: [98, 11, 14, 17, 20]
         include:
           - generator: Ninja
           - build_type: Debug
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v2
 
       - name: Setup Ninja
         uses: ashutoshvarma/setup-ninja@master
@@ -76,7 +76,7 @@ jobs:
 
       - name: Upload Coverage to Codecov
         if: matrix.build_type == 'Debug'
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true

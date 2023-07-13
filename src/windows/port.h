@@ -1,4 +1,4 @@
-/* Copyright (c) 2023, Google Inc.
+/* Copyright (c) 2008, Google Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -84,7 +84,7 @@
 #define getcwd  _getcwd
 #define open    _open
 #define read    _read
-#define write(fd, p, n) _write(fd, p, n)
+#define write   _write
 #define lseek   _lseek
 #define close   _close
 #define popen   _popen
@@ -158,15 +158,15 @@ enum { PTHREAD_ONCE_INIT = 0 };   // important that this be 0! for SpinLock
 #endif // HAVE_PTHREAD
 
 #ifndef HAVE_LOCALTIME_R
-extern GLOG_EXPORT std::tm* localtime_r(const std::time_t* timep,
-                                        std::tm* result);
+extern GLOG_EXPORT struct tm* localtime_r(const time_t* timep,
+                                          struct tm* result);
 #endif // not HAVE_LOCALTIME_R
 
 #ifndef HAVE_GMTIME_R
-extern GLOG_EXPORT std::tm* gmtime_r(const std::time_t* timep, std::tm* result);
+extern GLOG_EXPORT struct tm* gmtime_r(const time_t* timep, struct tm* result);
 #endif // not HAVE_GMTIME_R
 
-inline char* strerror_r(int errnum, char* buf, std::size_t buflen) {
+inline char* strerror_r(int errnum, char* buf, size_t buflen) {
   strerror_s(buf, buflen, errnum);
   return buf;
 }

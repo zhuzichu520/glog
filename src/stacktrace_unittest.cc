@@ -36,7 +36,7 @@
 #include <glog/logging.h>
 #include "stacktrace.h"
 
-#ifdef HAVE_EXECINFO_BACKTRACE_SYMBOLS
+#ifdef HAVE_EXECINFO_H
 # include <execinfo.h>
 #endif
 
@@ -117,7 +117,7 @@ static void CheckRetAddrIsInFunction(void *ret_addr, const AddressRange &range)
 #endif
 
 void ATTRIBUTE_NOINLINE CheckStackTrace(int);
-static void ATTRIBUTE_NOINLINE CheckStackTraceLeaf() {
+static void ATTRIBUTE_NOINLINE CheckStackTraceLeaf(void) {
   const int STACK_LEN = 10;
   void *stack[STACK_LEN];
   int size;
@@ -130,8 +130,8 @@ static void ATTRIBUTE_NOINLINE CheckStackTraceLeaf() {
   CHECK_GE(size, 1);
   CHECK_LE(size, STACK_LEN);
 
-  if (true) {
-#ifdef HAVE_EXECINFO_BACKTRACE_SYMBOLS
+  if (1) {
+#ifdef HAVE_EXECINFO_H
     char **strings = backtrace_symbols(stack, size);
     printf("Obtained %d stack frames.\n", size);
     for (int i = 0; i < size; i++) {
@@ -233,12 +233,6 @@ int main(int, char ** argv) {
 
 #else
 int main() {
-
-#ifdef GLOG_BAZEL_BUILD
-  printf("HAVE_STACKTRACE is expected to be defined in Bazel tests\n");
-  exit(EXIT_FAILURE);
-#endif  // GLOG_BAZEL_BUILD
-
   printf("PASS (no stacktrace support)\n");
   return 0;
 }

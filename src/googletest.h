@@ -35,9 +35,7 @@
 #endif
 #define GOOGLETEST_H__
 
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include "utilities.h"
 
 #include <cctype>
 #include <csetjmp>
@@ -47,10 +45,11 @@
 #include <map>
 #include <sstream>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include "utilities.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -271,17 +270,19 @@ static inline void RunSpecifiedBenchmarks() {
 
   int iter_cnt = FLAGS_benchmark_iters;
   puts("Benchmark\tTime(ns)\tIterations");
-  for (auto& iter : g_benchlist) {
+  for (map<string, void (*)(int)>::const_iterator iter = g_benchlist.begin();
+       iter != g_benchlist.end();
+       ++iter) {
     clock_t start = clock();
-    iter.second(iter_cnt);
+    iter->second(iter_cnt);
     double elapsed_ns = (static_cast<double>(clock()) - start) /
                         CLOCKS_PER_SEC * 1000 * 1000 * 1000;
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat="
 #endif
-    printf("%s\t%8.2lf\t%10d\n", iter.first.c_str(), elapsed_ns / iter_cnt,
-           iter_cnt);
+    printf("%s\t%8.2lf\t%10d\n",
+           iter->first.c_str(), elapsed_ns / iter_cnt, iter_cnt);
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
@@ -295,10 +296,10 @@ static inline void RunSpecifiedBenchmarks() {
 
 class CapturedStream {
  public:
-  CapturedStream(int fd, string filename)
-      : fd_(fd),
-
-        filename_(std::move(filename)) {
+  CapturedStream(int fd, const string & filename) :
+    fd_(fd),
+    uncaptured_fd_(-1),
+    filename_(filename) {
     Capture();
   }
 
@@ -322,7 +323,7 @@ class CapturedStream {
     CHECK(cap_fd != -1);
 
     // Send stdout/stderr to this file
-    fflush(nullptr);
+    fflush(NULL);
     CHECK(dup2(cap_fd, fd_) != -1);
     CHECK(close(cap_fd) != -1);
   }
@@ -331,7 +332,7 @@ class CapturedStream {
   void StopCapture() {
     // Restore original stream
     if (uncaptured_fd_ != -1) {
-      fflush(nullptr);
+      fflush(NULL);
       CHECK(dup2(uncaptured_fd_, fd_) != -1);
     }
   }
@@ -340,7 +341,7 @@ class CapturedStream {
 
  private:
   int fd_;             // file descriptor being captured
-  int uncaptured_fd_{-1};  // where the stream was originally being sent to
+  int uncaptured_fd_;  // where the stream was originally being sent to
   string filename_;    // file where stream is being saved
 };
 static CapturedStream * s_captured_streams[STDERR_FILENO+1];
@@ -349,7 +350,7 @@ static CapturedStream * s_captured_streams[STDERR_FILENO+1];
 //   filename - File where output should be stored
 static inline void CaptureTestOutput(int fd, const string & filename) {
   CHECK((fd == STDOUT_FILENO) || (fd == STDERR_FILENO));
-  CHECK(s_captured_streams[fd] == nullptr);
+  CHECK(s_captured_streams[fd] == NULL);
   s_captured_streams[fd] = new CapturedStream(fd, filename);
 }
 static inline void CaptureTestStdout() {
@@ -402,7 +403,7 @@ static inline string GetCapturedTestOutput(int fd) {
   fclose(file);
 
   delete cap;
-  s_captured_streams[fd] = nullptr;
+  s_captured_streams[fd] = NULL;
 
   return content;
 }
@@ -478,7 +479,7 @@ static inline void StringReplace(string* str,
 
 static inline string Munge(const string& filename) {
   FILE* fp = fopen(filename.c_str(), "rb");
-  CHECK(fp != nullptr) << filename << ": couldn't open";
+  CHECK(fp != NULL) << filename << ": couldn't open";
   char buf[4096];
   string result;
   while (fgets(buf, 4095, fp)) {
@@ -486,7 +487,7 @@ static inline string Munge(const string& filename) {
     const size_t str_size = 256;
     char null_str[str_size];
     char ptr_str[str_size];
-    snprintf(null_str, str_size, "%p", static_cast<void*>(nullptr));
+    snprintf(null_str, str_size, "%p", static_cast<void*>(NULL));
     snprintf(ptr_str, str_size, "%p", reinterpret_cast<void*>(PTR_TEST_VALUE));
 
     StringReplace(&line, "__NULLP__", null_str);
@@ -576,20 +577,29 @@ struct FlagSaver {
 
 class Thread {
  public:
-  virtual ~Thread() = default;
+  virtual ~Thread() {}
 
   void SetJoinable(bool) {}
 #if defined(GLOG_OS_WINDOWS) && !defined(GLOG_OS_CYGWIN)
   void Start() {
-    handle_ = CreateThread(nullptr, 0, &Thread::InvokeThreadW, this, 0, &th_);
+    handle_ = CreateThread(NULL,
+                           0,
+                           &Thread::InvokeThreadW,
+                           this,
+                           0,
+                           &th_);
     CHECK(handle_) << "CreateThread";
   }
   void Join() {
     WaitForSingleObject(handle_, INFINITE);
   }
 #elif defined(HAVE_PTHREAD)
-  void Start() { pthread_create(&th_, nullptr, &Thread::InvokeThread, this); }
-  void Join() { pthread_join(th_, nullptr); }
+  void Start() {
+    pthread_create(&th_, NULL, &Thread::InvokeThread, this);
+  }
+  void Join() {
+    pthread_join(th_, NULL);
+  }
 #else
 # error No thread implementation.
 #endif
@@ -600,7 +610,7 @@ class Thread {
  private:
   static void* InvokeThread(void* self) {
     (static_cast<Thread*>(self))->Run();
-    return nullptr;
+    return NULL;
   }
 
 #if defined(GLOG_OS_WINDOWS) && !defined(GLOG_OS_CYGWIN)
@@ -619,7 +629,7 @@ static inline void SleepForMilliseconds(unsigned t) {
 #ifndef GLOG_OS_WINDOWS
 # if defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 199309L
   const struct timespec req = {0, t * 1000 * 1000};
-  nanosleep(&req, nullptr);
+  nanosleep(&req, NULL);
 # else
   usleep(t * 1000);
 # endif
@@ -630,7 +640,7 @@ static inline void SleepForMilliseconds(unsigned t) {
 
 // Add hook for operator new to ensure there are no memory allocation.
 
-void (*g_new_hook)() = nullptr;
+void (*g_new_hook)() = NULL;
 
 _END_GOOGLE_NAMESPACE_
 
@@ -645,10 +655,18 @@ void* operator new[](size_t size) GOOGLE_GLOG_THROW_BAD_ALLOC {
   return ::operator new(size);
 }
 
-void operator delete(void* p) noexcept { free(p); }
+void operator delete(void* p) throw() {
+  free(p);
+}
 
-void operator delete(void* p, size_t) noexcept { ::operator delete(p); }
+void operator delete(void* p, size_t) throw() {
+  ::operator delete(p);
+}
 
-void operator delete[](void* p) noexcept { ::operator delete(p); }
+void operator delete[](void* p) throw() {
+  ::operator delete(p);
+}
 
-void operator delete[](void* p, size_t) noexcept { ::operator delete(p); }
+void operator delete[](void* p, size_t) throw() {
+  ::operator delete(p);
+}

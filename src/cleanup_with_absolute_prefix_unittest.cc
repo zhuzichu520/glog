@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
 #endif
   // Make sure stderr is not buffered as stderr seems to be buffered
   // on recent windows.
-  setbuf(stderr, nullptr);
+  setbuf(stderr, NULL);
 
   // Test some basics before InitGoogleLogging:
   CaptureTestStderr();

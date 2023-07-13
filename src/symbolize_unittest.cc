@@ -31,15 +31,13 @@
 //
 // Unit tests for functions in symbolize.cc.
 
-#include "symbolize.h"
-
-#include <glog/logging.h>
-
 #include <csignal>
 #include <iostream>
 
 #include "config.h"
+#include <glog/logging.h>
 #include "googletest.h"
+#include "symbolize.h"
 #include "utilities.h"
 
 #ifdef HAVE_LIB_GFLAGS
@@ -49,13 +47,6 @@ using namespace GFLAGS_NAMESPACE;
 
 using namespace std;
 using namespace GOOGLE_NAMESPACE;
-
-// Avoid compile error due to "cast between pointer-to-function and
-// pointer-to-object is an extension" warnings.
-#if defined(__GNUG__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-#endif
 
 #if defined(HAVE_STACKTRACE)
 
@@ -68,7 +59,7 @@ static const char *TrySymbolize(void *pc) {
   if (Symbolize(pc, symbol, sizeof(symbol))) {
     return symbol;
   } else {
-    return nullptr;
+    return NULL;
   }
 }
 #endif
@@ -97,16 +88,12 @@ extern "C" {
 void nonstatic_func();
 void nonstatic_func() {
   volatile int a = 0;
-  // NOTE: In C++20, increment of object of volatile-qualified type is
-  // deprecated.
-  a = a + 1;
+  ++a;
 }
 
 static void static_func() {
   volatile int a = 0;
-  // NOTE: In C++20, increment of object of volatile-qualified type is
-  // deprecated.
-  a = a + 1;
+  ++a;
 }
 }
 
@@ -123,12 +110,12 @@ TEST(Symbolize, Symbolize) {
       TrySymbolize(reinterpret_cast<void *>(&static_func));
 
 #if !defined(_MSC_VER) || !defined(NDEBUG)
-  CHECK(nullptr != static_func_symbol);
+  CHECK(NULL != static_func_symbol);
   EXPECT_TRUE(strcmp("static_func", static_func_symbol) == 0 ||
               strcmp("static_func()", static_func_symbol) == 0);
 #endif
 
-  EXPECT_TRUE(nullptr == TrySymbolize(nullptr));
+  EXPECT_TRUE(NULL == TrySymbolize(NULL));
 }
 
 struct Foo {
@@ -137,9 +124,7 @@ struct Foo {
 
 void ATTRIBUTE_NOINLINE Foo::func(int x) {
   volatile int a = x;
-  // NOTE: In C++20, increment of object of volatile-qualified type is
-  // deprecated.
-  a = a + 1;
+  ++a;
 }
 
 // With a modern GCC, Symbolize() should return demangled symbol
@@ -181,7 +166,7 @@ static void SymbolizeSignalHandler(int /*signo*/) {
                 sizeof(g_symbolize_buffer))) {
     g_symbolize_result = g_symbolize_buffer;
   } else {
-    g_symbolize_result = nullptr;
+    g_symbolize_result = NULL;
   }
 }
 
@@ -278,9 +263,9 @@ static const char *SymbolizeStackConsumption(void *pc, int *stack_consumed) {
   LOG(INFO) << "Stack consumption of Symbolize: " << *stack_consumed;
 
   // Now restore the old alt-signal-stack and signal handlers.
-  CHECK_ERR(sigaltstack(&old_sigstk, nullptr));
-  CHECK_ERR(sigaction(SIGUSR1, &old_sa1, nullptr));
-  CHECK_ERR(sigaction(SIGUSR2, &old_sa2, nullptr));
+  CHECK_ERR(sigaltstack(&old_sigstk, NULL));
+  CHECK_ERR(sigaction(SIGUSR1, &old_sa1, NULL));
+  CHECK_ERR(sigaction(SIGUSR2, &old_sa2, NULL));
 
   return g_symbolize_result;
 }
@@ -307,7 +292,7 @@ TEST(Symbolize, SymbolizeStackConsumption) {
   // mangled or an unmangled name here.
   symbol = SymbolizeStackConsumption(reinterpret_cast<void *>(&static_func),
                                      &stack_consumed);
-  CHECK(nullptr != symbol);
+  CHECK(NULL != symbol);
   EXPECT_TRUE(strcmp("static_func", symbol) == 0 ||
               strcmp("static_func()", symbol) == 0);
   EXPECT_GT(stack_consumed, 0);
@@ -334,7 +319,7 @@ TEST(Symbolize, SymbolizeWithDemanglingStackConsumption) {
 // x86 specific tests.  Uses some inline assembler.
 extern "C" {
 inline void* always_inline inline_func() {
-  void *pc = nullptr;
+  void *pc = NULL;
 #ifdef TEST_X86_32_AND_64
   __asm__ __volatile__("call 1f; 1: pop %0" : "=r"(pc));
 #endif
@@ -343,7 +328,7 @@ inline void* always_inline inline_func() {
 
 void* ATTRIBUTE_NOINLINE non_inline_func();
 void* ATTRIBUTE_NOINLINE non_inline_func() {
-  void *pc = nullptr;
+  void *pc = NULL;
 #ifdef TEST_X86_32_AND_64
   __asm__ __volatile__("call 1f; 1: pop %0" : "=r"(pc));
 #endif
@@ -356,7 +341,7 @@ static void ATTRIBUTE_NOINLINE TestWithPCInsideNonInlineFunction() {
   const char *symbol = TrySymbolize(pc);
 
 #if !defined(_MSC_VER) || !defined(NDEBUG)
-  CHECK(symbol != nullptr);
+  CHECK(symbol != NULL);
   CHECK_STREQ(symbol, "non_inline_func");
 #endif
   cout << "Test case TestWithPCInsideNonInlineFunction passed." << endl;
@@ -369,7 +354,7 @@ static void ATTRIBUTE_NOINLINE TestWithPCInsideInlineFunction() {
   const char *symbol = TrySymbolize(pc);
 
 #if !defined(_MSC_VER) || !defined(NDEBUG)
-  CHECK(symbol != nullptr);
+  CHECK(symbol != NULL);
   CHECK_STREQ(symbol, __FUNCTION__);
 #endif
   cout << "Test case TestWithPCInsideInlineFunction passed." << endl;
@@ -384,7 +369,7 @@ static void ATTRIBUTE_NOINLINE TestWithReturnAddress() {
   const char *symbol = TrySymbolize(return_address);
 
 #if !defined(_MSC_VER) || !defined(NDEBUG)
-  CHECK(symbol != nullptr);
+  CHECK(symbol != NULL);
   CHECK_STREQ(symbol, "main");
 #endif
   cout << "Test case TestWithReturnAddress passed." << endl;
@@ -404,9 +389,7 @@ struct Foo {
 
 __declspec(noinline) void Foo::func(int x) {
   volatile int a = x;
-  // NOTE: In C++20, increment of object of volatile-qualified type is
-  // deprecated.
-  a = a + 1;
+  ++a;
 }
 
 TEST(Symbolize, SymbolizeWithDemangling) {
@@ -428,7 +411,7 @@ __declspec(noinline) void TestWithReturnAddress() {
 	  ;
   const char *symbol = TrySymbolize(return_address);
 #if !defined(_MSC_VER) || !defined(NDEBUG)
-  CHECK(symbol != nullptr);
+  CHECK(symbol != NULL);
   CHECK_STREQ(symbol, "main");
 #endif
   cout << "Test case TestWithReturnAddress passed." << endl;
@@ -444,7 +427,7 @@ int main(int argc, char **argv) {
 # if defined(__ELF__)
   // We don't want to get affected by the callback interface, that may be
   // used to install some callback function at InitGoogle() time.
-  InstallSymbolizeCallback(nullptr);
+  InstallSymbolizeCallback(NULL);
 
   TestWithPCInsideInlineFunction();
   TestWithPCInsideNonInlineFunction();
@@ -462,7 +445,3 @@ int main(int argc, char **argv) {
   return 0;
 #endif  // HAVE_SYMBOLIZE
 }
-
-#if defined(__GNUG__)
-#pragma GCC diagnostic pop
-#endif

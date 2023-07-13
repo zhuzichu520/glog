@@ -237,10 +237,11 @@ struct _wdirent {
     /* File name */
     wchar_t d_name[PATH_MAX+1];
 };
+typedef struct _wdirent _wdirent;
 
 struct _WDIR {
     /* Current directory entry */
-    _wdirent ent;
+    struct _wdirent ent;
 
     /* Private file data */
     WIN32_FIND_DATAW data;
@@ -254,6 +255,7 @@ struct _WDIR {
     /* Initial directory name */
     wchar_t *patt;
 };
+typedef struct _WDIR _WDIR;
 
 /* Multi-byte character version */
 struct dirent {
@@ -275,11 +277,14 @@ struct dirent {
     /* File name */
     char d_name[PATH_MAX+1];
 };
+typedef struct dirent dirent;
 
 struct DIR {
     struct dirent ent;
     struct _WDIR *wdirp;
 };
+typedef struct DIR DIR;
+
 
 /* Dirent functions */
 static DIR *opendir (const char *dirname);
@@ -352,20 +357,20 @@ _wopendir(
     wchar_t *p;
 
     /* Must have directory name */
-    if (dirname == nullptr || dirname[0] == '\0') {
-      dirent_set_errno(ENOENT);
-      return nullptr;
+    if (dirname == NULL  ||  dirname[0] == '\0') {
+        dirent_set_errno (ENOENT);
+        return NULL;
     }
 
     /* Allocate new _WDIR structure */
     dirp = (_WDIR*) malloc (sizeof (struct _WDIR));
     if (!dirp) {
-      return nullptr;
+        return NULL;
     }
 
     /* Reset _WDIR structure */
     dirp->handle = INVALID_HANDLE_VALUE;
-    dirp->patt = nullptr;
+    dirp->patt = NULL;
     dirp->cached = 0;
 
     /*
@@ -376,7 +381,7 @@ _wopendir(
      */
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
     /* Desktop */
-    n = GetFullPathNameW(dirname, 0, nullptr, nullptr);
+    n = GetFullPathNameW (dirname, 0, NULL, NULL);
 #else
     /* WinRT */
     n = wcslen (dirname);
@@ -384,8 +389,8 @@ _wopendir(
 
     /* Allocate room for absolute directory name and search pattern */
     dirp->patt = (wchar_t*) malloc (sizeof (wchar_t) * n + 16);
-    if (dirp->patt == nullptr) {
-      goto exit_closedir;
+    if (dirp->patt == NULL) {
+        goto exit_closedir;
     }
 
     /*
@@ -398,7 +403,7 @@ _wopendir(
      */
 #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP)
     /* Desktop */
-    n = GetFullPathNameW(dirname, n, dirp->patt, nullptr);
+    n = GetFullPathNameW (dirname, n, dirp->patt, NULL);
     if (n <= 0) {
         goto exit_closedir;
     }
@@ -435,7 +440,7 @@ _wopendir(
     /* Failure */
 exit_closedir:
     _wclosedir (dirp);
-    return nullptr;
+    return NULL;
 }
 
 /*
@@ -452,7 +457,7 @@ _wreaddir(
 
     /*
      * Read directory entry to buffer.  We can safely ignore the return value
-     * as entry will be set to nullptr in case of error.
+     * as entry will be set to NULL in case of error.
      */
     (void) _wreaddir_r (dirp, &dirp->ent, &entry);
 
@@ -464,7 +469,7 @@ _wreaddir(
  * Read next directory entry.
  *
  * Returns zero on success.  If end of directory stream is reached, then sets
- * result to nullptr and returns zero.
+ * result to NULL and returns zero.
  */
 static int
 _wreaddir_r(
@@ -514,8 +519,10 @@ _wreaddir_r(
         *result = entry;
 
     } else {
-        /* Return nullptr to indicate end of directory */
-        *result = nullptr;
+
+        /* Return NULL to indicate end of directory */
+        *result = NULL;
+
     }
 
     return /*OK*/0;
@@ -583,8 +590,9 @@ dirent_first(
     DWORD error;
 
     /* Open directory and retrieve the first entry */
-    dirp->handle = FindFirstFileExW(dirp->patt, FindExInfoStandard, &dirp->data,
-                                    FindExSearchNameMatch, nullptr, 0);
+    dirp->handle = FindFirstFileExW(
+        dirp->patt, FindExInfoStandard, &dirp->data,
+        FindExSearchNameMatch, NULL, 0);
     if (dirp->handle != INVALID_HANDLE_VALUE) {
 
         /* a directory entry is now waiting in memory */
@@ -595,7 +603,7 @@ dirent_first(
 
         /* Failed to open directory: no directory entry in memory */
         dirp->cached = 0;
-        datap = nullptr;
+        datap = NULL;
 
         /* Set error code */
         error = GetLastError ();
@@ -648,13 +656,14 @@ dirent_next(
             /* The very last entry has been processed or an error occurred */
             FindClose (dirp->handle);
             dirp->handle = INVALID_HANDLE_VALUE;
-            p = nullptr;
+            p = NULL;
         }
 
     } else {
 
         /* End of directory stream reached */
-        p = nullptr;
+        p = NULL;
+
     }
 
     return p;
@@ -670,15 +679,15 @@ opendir(
     struct DIR *dirp;
 
     /* Must have directory name */
-    if (dirname == nullptr || dirname[0] == '\0') {
+    if (dirname == NULL  ||  dirname[0] == '\0') {
         dirent_set_errno (ENOENT);
-        return nullptr;
+        return NULL;
     }
 
     /* Allocate memory for DIR structure */
     dirp = (DIR*) malloc (sizeof (struct DIR));
     if (!dirp) {
-        return nullptr;
+        return NULL;
     }
     {
         int error;
@@ -713,7 +722,7 @@ opendir(
     /* Failure */
 exit_free:
     free (dirp);
-    return nullptr;
+    return NULL;
 }
 
 /*
@@ -727,7 +736,7 @@ readdir(
 
     /*
      * Read directory entry to buffer.  We can safely ignore the return value
-     * as entry will be set to nullptr in case of error.
+     * as entry will be set to NULL in case of error.
      */
     (void) readdir_r (dirp, &dirp->ent, &entry);
 
@@ -739,7 +748,7 @@ readdir(
  * Read next directory entry into called-allocated buffer.
  *
  * Returns zero on success.  If the end of directory stream is reached, then
- * sets result to nullptr and returns zero.
+ * sets result to NULL and returns zero.
  */
 static int
 readdir_r(
@@ -797,10 +806,11 @@ readdir_r(
             entry->d_reclen = sizeof (struct dirent);
 
         } else {
+
             /*
              * Cannot convert file name to multi-byte string so construct
              * an erroneous directory entry and return that.  Note that
-             * we cannot return nullptr as that would stop the processing
+             * we cannot return NULL as that would stop the processing
              * of directory entries completely.
              */
             entry->d_name[0] = '?';
@@ -819,7 +829,8 @@ readdir_r(
     } else {
 
         /* No more directory entries */
-        *result = nullptr;
+        *result = NULL;
+
     }
 
     return /*OK*/0;
@@ -837,7 +848,7 @@ closedir(
 
         /* Close wide-character directory stream */
         ok = _wclosedir (dirp->wdirp);
-        dirp->wdirp = nullptr;
+        dirp->wdirp = NULL;
 
         /* Release multi-byte character version */
         free (dirp);
@@ -873,13 +884,13 @@ scandir(
     int (*filter)(const struct dirent*),
     int (*compare)(const struct dirent**, const struct dirent**))
 {
-    struct dirent **files = nullptr;
+    struct dirent **files = NULL;
     size_t size = 0;
     size_t allocated = 0;
     const size_t init_size = 1;
-    DIR *dir = nullptr;
+    DIR *dir = NULL;
     struct dirent *entry;
-    struct dirent *tmp = nullptr;
+    struct dirent *tmp = NULL;
     size_t i;
     int result = 0;
 
@@ -906,7 +917,7 @@ scandir(
 
                 /* Allocate first pointer table or enlarge existing table */
                 p = realloc (files, sizeof (void*) * num_entries);
-                if (p != nullptr) {
+                if (p != NULL) {
                     /* Got the memory */
                     files = (dirent**) p;
                     allocated = num_entries;
@@ -915,12 +926,13 @@ scandir(
                     result = -1;
                     break;
                 }
+
             }
 
             /* Allocate room for temporary directory entry */
-            if (tmp == nullptr) {
+            if (tmp == NULL) {
                 tmp = (struct dirent*) malloc (sizeof (struct dirent));
-                if (tmp == nullptr) {
+                if (tmp == NULL) {
                     /* Cannot allocate temporary directory entry */
                     result = -1;
                     break;
@@ -931,7 +943,7 @@ scandir(
             if (readdir_r (dir, tmp, &entry) == /*OK*/0) {
 
                 /* Did we get an entry? */
-                if (entry != nullptr) {
+                if (entry != NULL) {
                     int pass;
 
                     /* Determine whether to include the entry in result */
@@ -946,13 +958,14 @@ scandir(
                     if (pass) {
                         /* Store the temporary entry to pointer table */
                         files[size++] = tmp;
-                        tmp = nullptr;
+                        tmp = NULL;
 
                         /* Keep up with the number of files */
                         result++;
                     }
 
                 } else {
+
                     /*
                      * End of directory stream reached => sort entries and
                      * exit.
@@ -960,6 +973,7 @@ scandir(
                     qsort (files, size, sizeof (void*),
                         (int (*) (const void*, const void*)) compare);
                     break;
+
                 }
 
             } else {
@@ -984,7 +998,7 @@ scandir(
             free (files[i]);
         }
         free (files);
-        files = nullptr;
+        files = NULL;
     }
 
     /* Close directory stream */
